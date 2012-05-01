@@ -4,3 +4,8 @@
 *.jar
 *.war
 *.ear
+
+# Eclipse crap
+java/webanalytics/.classpath
+java/webanalytics/.project
+java/webanalytics/.settings
