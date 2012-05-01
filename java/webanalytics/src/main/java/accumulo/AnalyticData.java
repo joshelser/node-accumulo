@@ -1,3 +1,5 @@
+package accumulo;
+
 public class AnalyticData {
 	protected String host, visitor;
 	protected long arrival;

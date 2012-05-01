@@ -1,3 +1,5 @@
+package accumulo;
+
 import java.io.IOException;
 
 import org.apache.accumulo.core.client.AccumuloException;
