@@ -1,11 +1,15 @@
 node-accumulo
 =============
 
-This project uses node.js to ingest into Apache Accumulo via RabbitMQ and a Java application. Node.js runs an HTTP webserver which accepts incoming requests. Upon receipt, it fires a message over RabbitMQ where a Java process is running in the background. The Java process pulls the message off of its queue, and creates/inserts the mutation into Accumulo
+This project uses node.js to ingest into Apache Accumulo via RabbitMQ and a Java application. The intent is to store records of a client visiting a website, much like a Google Analytics. This example is meant to be contrived and the intent is to show the potential of using node to (indirectly) ingest data into Apache Accumulo. 
+
+### Brief Summary
+
+[node.js][] runs an HTTP webserver which accepts incoming requests from an HTTP client. Upon receipt, it strips the intended information off the query string of the request URL and fires a JSON string over RabbitMQ. Meanwhile, a Java process is running in the background, pulling data off of a queue that the node server is writing to. Upon receipt of a message, the Java process converts the JSON string into an object, creates, and then inserts mutations into Accumulo corresponding to the data contained in the JSON string.
 
 ### Prerequisites
 
-I'll make the bold assumption that you already have [Apache Hadoop][], [Apache Zookeeper][], and [Apache Accumulo][] installed on your machine. There is good documentation elsewhere for this.
+I'll make the (bold) assumption that you already have [Apache Hadoop][], [Apache Zookeeper][], and [Apache Accumulo][] installed on your machine. There is good documentation elsewhere for this.
 
 #### RabbitMQ and node.js
 
