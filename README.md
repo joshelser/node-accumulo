@@ -31,7 +31,13 @@ Make sure you have Hadoop, Zookeeper, and Accumulo started, then start the node 
 
     $ node node/server.js
 
-and then run the AmqpWebAnalytics.java's main method (I was lazy and used Ecipse). Then, fire up your browser or curl and request the URL
+Build and run the AmqpWebAnalytics class
+
+    $ cd java/webanalytics
+    $ mvn package
+    $ bin/run.sh
+
+Then, fire up curl and request the URL
 
     $ curl "http://localhost:12345/?host=10.0.0.1&visitor=10.0.0.2"
 
