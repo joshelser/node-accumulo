@@ -16,14 +16,21 @@ var exchange = null;
 
 var http_server = http.createServer(function(request, response) {
     var parsed_url = url.parse(request.url, true);
+    var path = parsed_url['pathname'];
 
-    var query = parsed_url['query'];
-
-    process_result(response, query);
+    if (path == '/post') {
+        process_post(response, parsed_url['query']);
+    } else if (path == '/get') {
+        process_get(response, parsed_url['query']);
+    } else {
+        console.log('Ignoring request');
+        response.writeHead(200, {'Content-Type': 'text/plain'});
+        response.end('Try /post or /get');
+    }
 });
 
 // Do some basic validation of the query string before proceeding
-function process_result(response, query) {
+function process_post(response, query) {
     if ('host' in query && 'visitor' in query) {
         var host = query['host'];
         var visitor = query['visitor'];

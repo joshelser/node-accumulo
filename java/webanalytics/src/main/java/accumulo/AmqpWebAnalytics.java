@@ -6,6 +6,7 @@ import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.Connector;
+import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.client.MutationsRejectedException;
 import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
@@ -13,6 +14,9 @@ import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.admin.TableOperations;
 import org.apache.accumulo.core.data.Mutation;
 import org.apache.accumulo.core.data.Value;
+import org.apache.accumulo.core.iterators.LongCombiner.VarLenEncoder;
+import org.apache.accumulo.core.iterators.aggregation.NumSummation;
+import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.hadoop.io.Text;
 
 import com.google.gson.Gson;
@@ -46,7 +50,8 @@ public class AmqpWebAnalytics implements Runnable {
   // Some convenience instances
   private final Gson gson = new Gson();
   private final Text cfHolder = new Text(), cqHolder = new Text();
-  private final Value EMPTY_VALUE = new Value(new byte[0]);
+  private final VarLenEncoder encoder = new VarLenEncoder();
+  private final Value SINGLE_VALUE = new Value(encoder.encode(1l));
   
   public AmqpWebAnalytics() throws AccumuloException, AccumuloSecurityException, IOException, TableExistsException, TableNotFoundException {
     setupAccumulo();
@@ -71,6 +76,13 @@ public class AmqpWebAnalytics implements Runnable {
     TableOperations tops = this.connector.tableOperations();
     if (!tops.exists(this.tableName)) {
         tops.create(this.tableName);
+        
+        IteratorSetting combiner = new IteratorSetting(19, "summation", org.apache.accumulo.core.iterators.user.SummingCombiner.class);
+        combiner.addOption("all", "true");
+        combiner.addOption("lossy", "true");
+        combiner.addOption("type", "VARLEN");
+        
+        tops.attachIterator(tableName, combiner);
     }
 
     this.writer = this.connector.createBatchWriter(this.tableName, 10000000l, 10000l, 8);
@@ -126,7 +138,7 @@ public class AmqpWebAnalytics implements Runnable {
         
         data = gson.fromJson(new String(delivery.getBody()), AnalyticData.class);
         
-        System.out.println("Received data: " + data);
+        // System.out.println("Received data: " + data);
         
         handleData(data);
       } catch (ShutdownSignalException e) {
@@ -155,7 +167,7 @@ public class AmqpWebAnalytics implements Runnable {
     cfHolder.set(data.getVisitor().getBytes());
     cqHolder.set(Long.toString(data.getArrival()));
     
-    m.put(cfHolder, cqHolder, EMPTY_VALUE);
+    m.put(cfHolder, cqHolder, SINGLE_VALUE);
     
     try {
       writer.addMutation(m);

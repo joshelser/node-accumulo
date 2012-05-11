@@ -43,12 +43,20 @@ Build and run the AmqpWebAnalytics class
 
 Then, fire up curl and request the URL
 
-    $ curl "http://localhost:12345/?host=10.0.0.1&visitor=10.0.0.2"
+    $ curl "http://localhost:12345/post?host=10.0.0.1&visitor=10.0.0.2"
 
 At this point, you should have a print statement from both the node and Java process acknowledging that they both received the message, and, you should also see a new entry in a new Accumulo table with the information you provided, similar to:
 
     root@accumulo analytics> scan
     10.0.0.1 10.0.0.2:1335928232348 []
+
+#### Having fun
+
+If you really want to test out the server, try running siege to flood the process :D
+
+    # emerge -av app-benchmarks/siege
+    $ siege.config
+    $ siege -b -c 800 "http://localhost:12345/post?host=10.0.0.1&visitor=10.0.0.2"
 
 [RabbitMQ]: http://www.rabbitmq.com/ "RabbitMQ"
 [node.js]: http://nodejs.org/       "node.js"
