@@ -1,9 +1,15 @@
 package accumulo;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map.Entry;
 
+import org.apache.accumulo.core.Constants;
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
+import org.apache.accumulo.core.client.BatchScanner;
 import org.apache.accumulo.core.client.BatchWriter;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
@@ -12,11 +18,11 @@ import org.apache.accumulo.core.client.TableExistsException;
 import org.apache.accumulo.core.client.TableNotFoundException;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
 import org.apache.accumulo.core.client.admin.TableOperations;
+import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Mutation;
+import org.apache.accumulo.core.data.Range;
 import org.apache.accumulo.core.data.Value;
 import org.apache.accumulo.core.iterators.LongCombiner.VarLenEncoder;
-import org.apache.accumulo.core.iterators.aggregation.NumSummation;
-import org.apache.accumulo.core.iterators.user.SummingCombiner;
 import org.apache.hadoop.io.Text;
 
 import com.google.gson.Gson;
@@ -31,9 +37,10 @@ public class AmqpWebAnalytics implements Runnable {
   // RabbitMQ configuration
   protected String hostName = "localhost";
   protected int portNumber = 5672;
-  protected String queueName = "java-accumuloanalytics";
   protected String exchangeName = "accumuloanalytics";
-  protected String routingKey = "webanalytic";
+  protected String sendRoutingKey = "webanalytics-post";
+  protected String getRoutingKey = "webanalytics-get";
+  protected String getResponseRoutingKey = "webanalytics-response-get";
   
   // Accumulo configuration
   protected String tableName = "analytics";
@@ -43,6 +50,7 @@ public class AmqpWebAnalytics implements Runnable {
   protected String password = "secret"; // lol
   
   protected boolean done = false;
+  protected Channel channel = null;
   protected Connector connector = null;
   protected QueueingConsumer consumer;
   protected BatchWriter writer = null;
@@ -98,17 +106,19 @@ public class AmqpWebAnalytics implements Runnable {
     ConnectionFactory connFactory = new ConnectionFactory();
     connFactory.setHost(this.hostName);
     Connection conn = connFactory.newConnection();
-    Channel channel = conn.createChannel();
-
-    // Declare the queue that we'll be consuming data from
-    channel.queueDeclare(this.queueName, false, false, false, null);
+    this.channel = conn.createChannel();
     
+    channel.exchangeDeclare(this.exchangeName, "direct");
+    String queueName = channel.queueDeclare().getQueue();
+
     // Bind that queue to the exchange Node will be writing to in RabbitMQ
-    channel.queueBind(this.queueName, this.exchangeName, this.routingKey);
+    channel.queueBind(queueName, this.exchangeName, this.sendRoutingKey);
+    channel.queueBind(queueName, this.exchangeName, this.getRoutingKey);
+    
 
     // Make said consumer for the queue
     this.consumer = new QueueingConsumer(channel);
-    channel.basicConsume(this.queueName, true, this.consumer);
+    channel.basicConsume(queueName, true, this.consumer);
   }
   
   /**
@@ -135,12 +145,32 @@ public class AmqpWebAnalytics implements Runnable {
       
       try {
         delivery = consumer.nextDelivery();
+        String routingKey = delivery.getEnvelope().getRoutingKey();
         
-        data = gson.fromJson(new String(delivery.getBody()), AnalyticData.class);
-        
-        // System.out.println("Received data: " + data);
-        
-        handleData(data);
+        if (routingKey.equals(this.sendRoutingKey)) {
+          System.out.println("Got the key: " + this.sendRoutingKey);
+          data = gson.fromJson(new String(delivery.getBody()), AnalyticData.class);
+          
+          System.out.println("Received data to load: " + data);
+          
+          handleData(data);
+        } else if (routingKey.equals(this.getRoutingKey)) {
+          System.out.println("Got the key: " + this.getRoutingKey);
+          
+          data = gson.fromJson(new String(delivery.getBody()), AnalyticData.class);
+          
+          System.out.println("Received data to fetch: " + data);
+          
+          List<AnalyticData> results = getResults(data);
+          
+          System.out.println("Returning " + results.size() + " elements");
+          
+          this.channel.basicPublish(this.exchangeName, this.getResponseRoutingKey, null, gson.toJson(results).getBytes());
+        } else {
+          System.out.println("Received unknown routing key");
+        }
+         
+
       } catch (ShutdownSignalException e) {
         System.out.println("Caught ShutdownSignalException, stopping...");
         e.printStackTrace();
@@ -149,6 +179,9 @@ public class AmqpWebAnalytics implements Runnable {
         System.out.println("Caught InterruptedException, stopping...");
         e.printStackTrace();
         done = true;
+      } catch (IOException e) {
+        System.out.println("Caught IOException, ignoring...");
+        e.printStackTrace();
       }
     }
     
@@ -174,6 +207,27 @@ public class AmqpWebAnalytics implements Runnable {
     } catch (MutationsRejectedException e) {
       System.err.println("Could not create mutation for data: " + data);
     }
+  }
+  
+  protected List<AnalyticData> getResults(AnalyticData input) {
+    List<AnalyticData> results = new ArrayList<AnalyticData>();
+    
+    BatchScanner bs;
+    try {
+      bs = connector.createBatchScanner(this.tableName, Constants.NO_AUTHS, 4);
+    } catch (TableNotFoundException e) {
+      return Collections.emptyList();
+    }
+    
+    bs.setRanges(Collections.singletonList(new Range(input.getHost())));
+    
+    for (Entry<Key,Value> entry : bs) {
+      Key k = entry.getKey();
+      results.add(new AnalyticData(k.getRow().toString(), k.getColumnFamily().toString(),
+          Long.parseLong(k.getColumnQualifier().toString())));
+    }
+    
+    return results;
   }
   
   public static void main(String[] args) throws AccumuloException, AccumuloSecurityException, IOException, TableExistsException, TableNotFoundException {

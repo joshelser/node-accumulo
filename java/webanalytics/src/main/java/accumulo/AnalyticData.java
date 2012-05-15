@@ -5,6 +5,12 @@ public class AnalyticData {
 	protected long arrival;
 	
 	public AnalyticData() {}
+	
+	public AnalyticData(String host, String visitor, long arrival) {
+	  this.setHost(host);
+	  this.setVisitor(visitor);
+	  this.setArrival(arrival);
+	}
 
   public String getHost() {
     return host;
