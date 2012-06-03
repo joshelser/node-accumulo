@@ -21,19 +21,17 @@ Otherwise, you can manually install both [RabbitMQ][] and [node.js][]. Don't for
 
     # /etc/init.d/rabbitmq start
 
-#### node-amqp-module
+#### Display
 
-Things get a little tricky with the [node-amqp-module][]. The version of the module pulled down using npm was old so I had to pull down the code manually, build the module, and tell node about the path
+[Express][], [Jade][], [Socket.IO][], and [DataTables][] were used to create an simple interface for users to view data stored in Accumulo.
 
-    $ git clone https://github.com/postwait/node-amqp.git node-amqp.git
-    $ cd node-amqp.git && make
-    $ export NODE_PATH=$NODE_PATH:/path/to/node-amqp.git
+#### Running the application
 
-#### Running
+Make sure you have Hadoop, Zookeeper, and Accumulo started, then install the dependencies for the application and start it.
 
-Make sure you have Hadoop, Zookeeper, and Accumulo started, then start the node process
-
-    $ node node/server.js
+    $ cd node
+    $ npm install
+    $ NODE_ENV=production node node/server.js
 
 Build and run the AmqpWebAnalytics class
 
@@ -41,14 +39,18 @@ Build and run the AmqpWebAnalytics class
     $ mvn package
     $ bin/run.sh
 
-Then, fire up curl and request the URL
+Fire up curl to load some data
 
-    $ curl "http://localhost:12345/post?host=10.0.0.1&visitor=10.0.0.2"
+    $ curl http://localhost:3000/analytics/10.0.0.1 -d "visitor=10.0.0.2"
+    $ curl http://localhost:3000/analytics/10.0.0.1 -d "visitor=10.0.0.3"
+    $ curl http://localhost:3000/analytics/10.0.0.1 -d "visitor=10.0.0.4"
 
-At this point, you should have a print statement from both the node and Java process acknowledging that they both received the message, and, you should also see a new entry in a new Accumulo table with the information you provided, similar to:
+Use the site to view the data at http://localhost:3000. You can also open up the Accumulo shell to verify that the record exists.
 
     root@accumulo analytics> scan
     10.0.0.1 10.0.0.2:1335928232348 []
+    10.0.0.1 10.0.0.3:1335928232353 []
+    10.0.0.1 10.0.0.4:1335928232358 []
 
 #### Having fun
 
@@ -56,7 +58,7 @@ If you really want to test out the server, try running siege to flood the proces
 
     # emerge -av app-benchmarks/siege
     $ siege.config
-    $ siege -b -c 800 "http://localhost:12345/post?host=10.0.0.1&visitor=10.0.0.2"
+    $ siege -b -c 800 "http://localhost:3000/analytics/10.0.0.1 POST visitor=10.0.0.2"
 
 [RabbitMQ]: http://www.rabbitmq.com/ "RabbitMQ"
 [node.js]: http://nodejs.org/       "node.js"
@@ -64,3 +66,7 @@ If you really want to test out the server, try running siege to flood the proces
 [Apache Hadoop]: http://hadoop.apache.org/common/docs/r0.20.2/quickstart.html#PseudoDistributed "Apache Hadoop"
 [Apache Zookeeper]: http://zookeeper.apache.org/doc/r3.3.1/zookeeperStarted.html "Apache Zookeeper"
 [Apache Accumulo]: http://accumulo.apache.org/1.4/user_manual/Administration.html "Apache Accumulo"
+[Express]: http://expressjs.com/ "Express"
+[Jade]: http://jade-lang.com "Jade"
+[Socket.IO]: http://socket.io "Socket.IO"
+[DataTables]: http://datatables.net "DataTables"
