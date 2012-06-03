@@ -1,0 +1,27 @@
+html {
+    width: 70%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+body {
+    padding: 50px;
+    font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+
+a {
+    color: #00B7FF;
+}
+
+table#datatable {
+    width: 100%;
+}
+
+table#datatable tbody tr td {
+    padding: 15px;
+    width: 70%;
+}
+
+table#datatable tbody tr td:first-child {
+    width: 30%;
+}

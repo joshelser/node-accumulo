@@ -1,0 +1,55 @@
+script
+    $(document).ready(function() {
+        $('#spinner').hide();
+        $('#input').focus();
+    });
+
+a(href='https://github.com/joshelser/node-accumulo')
+    img(style='position: absolute; top: 0; right: 0; border: 0;',src='https://s3.amazonaws.com/github/ribbons/forkme_right_green_007200.png', alt='Fork me on GitHub')
+
+h2 Retrieving data from Accumulo
+
+p Use the input box below to fetch analytic entries for a host contained in Accumulo
+
+div
+    input#input
+    img(src='images/indicator.white.gif')#spinner
+
+script
+    $(function () {
+        var socket = io.connect(),
+            input = $('#input'),
+            datatable = $('#datatable');
+
+        socket.on('response', function(msg) {
+            data = JSON.parse(msg);
+            datatable.hide();
+
+            datatable.dataTable({
+                'aaData': data.map(function(val) {
+                    var arrival = new Date(val['arrival']);
+                    return [val['visitor'], arrival];
+                }),
+                'aoColumns': [
+                    { 'sTitle':'Visitor' },
+                    { 'sTitle':'Time of visitor\'s arrival'}],
+                'bJQueryUI': true,
+                'bDestroy': true,
+                'bAutoWidth': false
+            });
+
+            datatable.show();
+
+            $('#spinner').hide();
+        });
+
+        input.keypress(function (e) {
+            if (e.which === 13) {
+                $('#spinner').show();
+                socket.emit('fetch_host', input.val());
+            }
+        });
+    });
+
+br
+table.display#datatable()

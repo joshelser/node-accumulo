@@ -10,3 +10,6 @@ java/webanalytics/.classpath
 java/webanalytics/.project
 java/webanalytics/.settings
 java/webanalytics/target
+
+# Node/Express stuff
+node/node_modules
