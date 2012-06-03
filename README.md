@@ -47,6 +47,9 @@ Fire up curl to load some data
 
 Use the site to view the data at http://localhost:3000. You can also open up the Accumulo shell to verify that the record exists.
 
+![Screenshot](http://joshelser.github.com/images/screenshot.png")
+
+
     root@accumulo analytics> scan
     10.0.0.1 10.0.0.2:1335928232348 []
     10.0.0.1 10.0.0.3:1335928232353 []
