@@ -26,6 +26,7 @@ import org.apache.accumulo.core.iterators.LongCombiner.VarLenEncoder;
 import org.apache.hadoop.io.Text;
 
 import com.google.gson.Gson;
+import com.rabbitmq.client.AMQP.BasicProperties;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
@@ -118,7 +119,7 @@ public class AmqpWebAnalytics implements Runnable {
 
     // Make said consumer for the queue
     this.consumer = new QueueingConsumer(channel);
-    channel.basicConsume(queueName, true, this.consumer);
+    channel.basicConsume(queueName, false, this.consumer);
   }
   
   /**
@@ -147,6 +148,11 @@ public class AmqpWebAnalytics implements Runnable {
         delivery = consumer.nextDelivery();
         String routingKey = delivery.getEnvelope().getRoutingKey();
         
+        BasicProperties props = delivery.getProperties();
+        
+        BasicProperties replyProps = new BasicProperties();
+        replyProps.setCorrelationId(props.getCorrelationId());
+        
         if (routingKey.equals(this.sendRoutingKey)) {
           System.out.println("Got the key: " + this.sendRoutingKey);
           data = gson.fromJson(new String(delivery.getBody()), AnalyticData.class);
@@ -165,11 +171,12 @@ public class AmqpWebAnalytics implements Runnable {
           
           System.out.println("Returning " + results.size() + " elements");
           
-          this.channel.basicPublish(this.exchangeName, this.getResponseRoutingKey, null, gson.toJson(results).getBytes());
+          this.channel.basicPublish(this.exchangeName, this.getResponseRoutingKey, replyProps, gson.toJson(results).getBytes());
         } else {
           System.out.println("Received unknown routing key");
         }
-         
+        
+        channel.basicAck(delivery.getEnvelope().getDeliveryTag(), false);
 
       } catch (ShutdownSignalException e) {
         System.out.println("Caught ShutdownSignalException, stopping...");
@@ -183,6 +190,13 @@ public class AmqpWebAnalytics implements Runnable {
         System.out.println("Caught IOException, ignoring...");
         e.printStackTrace();
       }
+    }
+    
+    try {
+      this.writer.close();
+    } catch (MutationsRejectedException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
     }
     
     System.out.println("Exiting...");
@@ -243,8 +257,14 @@ public class AmqpWebAnalytics implements Runnable {
           // (Attempt to) let it exit gracefully
           analytics.setDone(true);
           
+          // Make sure it closed
+          analytics.writer.close();
+          
           t.join(5000);
         } catch (InterruptedException e) {
+          e.printStackTrace();
+        } catch (MutationsRejectedException e) {
+          // TODO Auto-generated catch block
           e.printStackTrace();
         }
       }
