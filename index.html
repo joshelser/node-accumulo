@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="Node-accumulo : Using Node.js to ingest into Accumulo via RabbitMQ and Java" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Node-accumulo</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/joshelser/node-accumulo">View on GitHub</a>
+
+          <h1 id="project_title">Node-accumulo</h1>
+          <h2 id="project_tagline">Using Node.js to ingest into Accumulo via RabbitMQ and Java</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/joshelser/node-accumulo/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/joshelser/node-accumulo/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>node-accumulo</h1>
+
+<p>This project uses node.js to ingest into Apache Accumulo via RabbitMQ and a Java application. The intent is to store records of a client visiting a website, much like a Google Analytics. This example is meant to be contrived and the intent is to show the potential of using node to (indirectly) ingest data into Apache Accumulo. </p>
+
+<h3>Brief Summary</h3>
+
+<p><a href="http://nodejs.org/" title="node.js">node.js</a> runs an HTTP webserver which accepts incoming requests from an HTTP client. Upon receipt, it strips the intended information off the query string of the request URL and fires a JSON string over RabbitMQ. Meanwhile, a Java process is running in the background, pulling data off of a queue that the node server is writing to. Upon receipt of a message, the Java process converts the JSON string into an object, creates, and then inserts mutations into Accumulo corresponding to the data contained in the JSON string.</p>
+
+<h3>Prerequisites</h3>
+
+<p>I'll make the (bold) assumption that you already have <a href="http://hadoop.apache.org/common/docs/r0.20.2/quickstart.html#PseudoDistributed" title="Apache Hadoop">Apache Hadoop</a>, <a href="http://zookeeper.apache.org/doc/r3.3.1/zookeeperStarted.html" title="Apache Zookeeper">Apache Zookeeper</a>, and <a href="http://accumulo.apache.org/1.4/user_manual/Administration.html" title="Apache Accumulo">Apache Accumulo</a> installed on your machine. There is good documentation elsewhere for this.</p>
+
+<h4>RabbitMQ and node.js</h4>
+
+<p>These should be relatively straightfoward, something along the lines of:</p>
+
+<pre><code># emerge net-misc/rabbitmq-server net-libs/nodejs
+</code></pre>
+
+<p>Otherwise, you can manually install both <a href="http://www.rabbitmq.com/" title="RabbitMQ">RabbitMQ</a> and <a href="http://nodejs.org/" title="node.js">node.js</a>. Don't forget to start RabbitMQ.</p>
+
+<pre><code># /etc/init.d/rabbitmq start
+</code></pre>
+
+<h4>Display</h4>
+
+<p><a href="http://expressjs.com/" title="Express">Express</a>, <a href="http://jade-lang.com" title="Jade">Jade</a>, <a href="http://socket.io" title="Socket.IO">Socket.IO</a>, and <a href="http://datatables.net" title="DataTables">DataTables</a> were used to create an simple interface for users to view data stored in Accumulo.</p>
+
+<h4>Running the application</h4>
+
+<p>Make sure you have Hadoop, Zookeeper, and Accumulo started, then install the dependencies for the application and start it.</p>
+
+<pre><code>$ cd node
+$ npm install
+$ NODE_ENV=production node node/server.js
+</code></pre>
+
+<p>Build and run the AmqpWebAnalytics class</p>
+
+<pre><code>$ cd java/webanalytics
+$ mvn package
+$ bin/run.sh
+</code></pre>
+
+<p>Fire up curl to load some data</p>
+
+<pre><code>$ curl http://localhost:3000/analytics/10.0.0.1 -d "visitor=10.0.0.2"
+$ curl http://localhost:3000/analytics/10.0.0.1 -d "visitor=10.0.0.3"
+$ curl http://localhost:3000/analytics/10.0.0.1 -d "visitor=10.0.0.4"
+</code></pre>
+
+<p>Use the site to view the data at http://localhost:3000. You can also open up the Accumulo shell to verify that the record exists.</p>
+
+<pre><code>root@accumulo analytics&gt; scan
+10.0.0.1 10.0.0.2:1335928232348 []
+10.0.0.1 10.0.0.3:1335928232353 []
+10.0.0.1 10.0.0.4:1335928232358 []
+</code></pre>
+
+<h4>Having fun</h4>
+
+<p>If you really want to test out the server, try running siege to flood the process :D</p>
+
+<pre><code># emerge -av app-benchmarks/siege
+$ siege.config
+$ siege -b -c 800 "http://localhost:3000/analytics/10.0.0.1 POST visitor=10.0.0.2"
+</code></pre>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Node-accumulo maintained by <a href="https://github.com/joshelser">joshelser</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
